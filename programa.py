@@ -3,7 +3,6 @@ from mysql.connector import Error
 import json
 import heapq
 
-# Clase para gestionar la conexión a la base de datos
 class DatabaseManager:
     def __init__(self, host, user, password, database):
         self.connection = None
@@ -38,7 +37,6 @@ class DatabaseManager:
             print(f"Error al obtener resultados: {e}")
             return None
 
-# Clase para representar el Grafo
 class Grafo:
     def __init__(self):
         self.ubicaciones = {}
@@ -67,7 +65,6 @@ class Grafo:
                     heapq.heappush(prioridad, (nueva_distancia, vecino))
         return float('inf')
 
-# Clase para representar el Árbol Binario de Búsqueda
 class NodoArbol:
     def __init__(self, fecha, datos):
         self.fecha = fecha
@@ -111,7 +108,6 @@ class ArbolBinario:
             if nodo.fecha < fecha_fin:
                 self._buscar_rango(nodo.derecha, fecha_inicio, fecha_fin, resultados)
 
-# Clase principal para la gestión del juego
 class Videojuego:
     def __init__(self, db_manager):
         self.db = db_manager
@@ -182,7 +178,6 @@ class Videojuego:
     def consultar_partidas_rango(self, fecha_inicio, fecha_fin):
         return self.arbol_partidas.buscar_rango(fecha_inicio, fecha_fin)
 
-# Menú principal
 def menu_principal():
     db_manager = DatabaseManager(host="localhost", user="root", password="", database="VideojuegoMultijugador")
     juego = Videojuego(db_manager)
@@ -219,7 +214,6 @@ def menu_principal():
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# Menú de gestión de jugadores
 def menu_gestion_jugadores(juego):
     while True:
         print("\n*************************** Gestión de Jugadores ***************************")
@@ -261,7 +255,6 @@ def menu_gestion_jugadores(juego):
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# Menú de gestión de mapas
 def menu_gestion_mapas(juego):
     while True:
         print("\n*************************** Gestión de Mapas ***************************")
@@ -296,7 +289,6 @@ def menu_gestion_mapas(juego):
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# Menú de gestión de inventarios
 def menu_gestion_inventarios(juego):
     while True:
         print("\n*************************** Gestión de Inventarios ***************************")
@@ -327,7 +319,6 @@ def menu_gestion_inventarios(juego):
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# Menú del sistema de batallas
 def menu_sistema_batallas(juego):
     while True:
         print("\n*************************** Sistema de Batallas ***************************")
@@ -358,7 +349,6 @@ def menu_sistema_batallas(juego):
         else:
             print("Opción no válida. Intente de nuevo.")
 
-# Menú del ranking global
 def menu_ranking_global(juego):
     print("\n*************************** Ranking Global ***************************")
     query = """
@@ -375,7 +365,6 @@ def menu_ranking_global(juego):
     else:
         print("No se encontraron jugadores.")
 
-# Menú de equipos y estadísticas
 def menu_equipos_estadisticas(juego):
     print("\n*************************** Equipos y Estadísticas ***************************")
     query = """
@@ -391,7 +380,6 @@ def menu_equipos_estadisticas(juego):
     else:
         print("No se encontraron estadísticas de equipos.")
 
-# Menú de consultas y análisis
 def menu_consultas_analisis(juego):
     print("\n*************************** Consultas y Análisis ***************************")
     print("Consulta personalizada sobre los datos del juego.")
