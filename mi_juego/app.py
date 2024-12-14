@@ -10,10 +10,10 @@ class DatabaseManager:
         self.connection = None
         try:
             self.connection = connect(
-                host=host,
-                user=user,
-                password=password,
-                database=database
+                host="127.0.0.1",
+                user="root",
+                password="",
+                database="videojuegomultijugador"
             )
             if self.connection.is_connected():
                 print("Conexión exitosa a la base de datos")
