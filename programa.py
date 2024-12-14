@@ -9,10 +9,10 @@ class DatabaseManager:
         self.connection = None
         try:
             self.connection = mysql.connector.connect(
-                host="127.0.0.1",
-                user="root",
-                password="",
-                database="videojuegomultijugador"
+                host=host,
+                user=user,
+                password=password,
+                database=database
             )
             if self.connection.is_connected():
                 print("Conexión exitosa a la base de datos")
@@ -125,6 +125,27 @@ class Videojuego:
         """
         self.db.execute_query(query, (nombre_usuario, nivel, equipo))
 
+    def modificar_jugador(self, nombre_usuario, nivel=None, equipo=None):
+        partes = []
+        params = []
+        if nivel is not None:
+            partes.append("Nivel = %s")
+            params.append(nivel)
+        if equipo is not None:
+            partes.append("Equipo = %s")
+            params.append(equipo)
+        params.append(nombre_usuario)
+        query = f"UPDATE Jugadores SET {', '.join(partes)} WHERE NombreUsuario = %s"
+        self.db.execute_query(query, params)
+
+    def eliminar_jugador(self, nombre_usuario):
+        query = "DELETE FROM Jugadores WHERE NombreUsuario = %s"
+        self.db.execute_query(query, (nombre_usuario,))
+
+    def consultar_jugador(self, nombre_usuario):
+        query = "SELECT * FROM Jugadores WHERE NombreUsuario = %s"
+        return self.db.fetch_results(query, (nombre_usuario,))
+
     def crear_mundo(self, nombre_mundo):
         grafo = Grafo()
         self.grafos[nombre_mundo] = grafo
@@ -147,10 +168,19 @@ class Videojuego:
             """
             self.db.execute_query(query, (grafo_serializado, nombre_mundo))
 
+    def consultar_ruta_optima(self, nombre_mundo, origen, destino):
+        if nombre_mundo in self.grafos:
+            grafo = self.grafos[nombre_mundo]
+            return grafo.encontrar_ruta_mas_corta(origen, destino)
+        return float('inf')
+
     def registrar_partida(self, fecha, equipo1, equipo2, resultado):
         query = "CALL RegistrarPartida(%s, %s, %s, %s)"
         self.db.execute_query(query, (equipo1, equipo2, resultado, fecha))
         self.arbol_partidas.insertar(fecha, {"equipo1": equipo1, "equipo2": equipo2, "resultado": resultado})
+
+    def consultar_partidas_rango(self, fecha_inicio, fecha_fin):
+        return self.arbol_partidas.buscar_rango(fecha_inicio, fecha_fin)
 
 # Menú principal
 def menu_principal():
@@ -174,15 +204,15 @@ def menu_principal():
         elif opcion == "2":
             menu_gestion_mapas(juego)
         elif opcion == "3":
-            print("Gestión de Inventarios: Opciones no implementadas aún.")
+            menu_gestion_inventarios(juego)
         elif opcion == "4":
-            print("Sistema de Batallas y Partidas: Opciones no implementadas aún.")
+            menu_sistema_batallas(juego)
         elif opcion == "5":
-            print("Ranking Global: Opciones no implementadas aún.")
+            menu_ranking_global(juego)
         elif opcion == "6":
-            print("Equipos y Estadísticas: Opciones no implementadas aún.")
+            menu_equipos_estadisticas(juego)
         elif opcion == "7":
-            print("Consultas y Análisis: Opciones no implementadas aún.")
+            menu_consultas_analisis(juego)
         elif opcion == "8":
             print("Saliendo del programa.")
             break
@@ -193,25 +223,39 @@ def menu_principal():
 def menu_gestion_jugadores(juego):
     while True:
         print("\n*************************** Gestión de Jugadores ***************************")
-        print("1) Registrar nuevo jugador")
-        print("2) Modificar datos de jugador")
+        print("1) Registrar jugador")
+        print("2) Modificar jugador")
         print("3) Eliminar jugador")
-        print("4) Consultar datos de jugador")
+        print("4) Consultar jugador")
         print("5) Volver al menú principal")
         opcion = input("Ingrese una opción válida: ")
 
         if opcion == "1":
-            nombre = input("Ingrese el nombre de usuario: ")
+            nombre = input("Ingrese el nombre del jugador: ")
             nivel = int(input("Ingrese el nivel del jugador: "))
-            equipo = input("Ingrese el equipo del jugador: ")
+            equipo = input("Ingrese el nombre del equipo: ")
             juego.registrar_jugador(nombre, nivel, equipo)
-            print("Jugador registrado exitosamente.")
+            print(f"Jugador {nombre} registrado exitosamente.")
         elif opcion == "2":
-            print("Funcionalidad no implementada aún.")
+            nombre = input("Ingrese el nombre del jugador a modificar: ")
+            nivel = input("Ingrese el nuevo nivel del jugador (deje en blanco para no modificar): ")
+            equipo = input("Ingrese el nuevo equipo del jugador (deje en blanco para no modificar): ")
+            nivel = int(nivel) if nivel else None
+            equipo = equipo if equipo else None
+            juego.modificar_jugador(nombre, nivel, equipo)
+            print(f"Jugador {nombre} modificado exitosamente.")
         elif opcion == "3":
-            print("Funcionalidad no implementada aún.")
+            nombre = input("Ingrese el nombre del jugador a eliminar: ")
+            juego.eliminar_jugador(nombre)
+            print(f"Jugador {nombre} eliminado exitosamente.")
         elif opcion == "4":
-            print("Funcionalidad no implementada aún.")
+            nombre = input("Ingrese el nombre del jugador: ")
+            jugador = juego.consultar_jugador(nombre)
+            if jugador:
+                print("Información del jugador:")
+                print(jugador[0])
+            else:
+                print("Jugador no encontrado.")
         elif opcion == "5":
             break
         else:
@@ -221,29 +265,146 @@ def menu_gestion_jugadores(juego):
 def menu_gestion_mapas(juego):
     while True:
         print("\n*************************** Gestión de Mapas ***************************")
-        print("1) Crear nuevo mapa")
-        print("2) Agregar conexión a un mapa")
-        print("3) Consultar rutas óptimas")
+        print("1) Crear un nuevo mundo")
+        print("2) Agregar una conexión entre ubicaciones")
+        print("3) Consultar ruta óptima entre ubicaciones")
         print("4) Volver al menú principal")
         opcion = input("Ingrese una opción válida: ")
 
         if opcion == "1":
-            nombre = input("Ingrese el nombre del mundo: ")
-            juego.crear_mundo(nombre)
-            print("Mapa creado exitosamente.")
+            nombre_mundo = input("Ingrese el nombre del nuevo mundo: ")
+            juego.crear_mundo(nombre_mundo)
+            print(f"Mundo '{nombre_mundo}' creado exitosamente.")
         elif opcion == "2":
-            nombre = input("Ingrese el nombre del mundo: ")
-            origen = input("Ingrese el nodo de origen: ")
-            destino = input("Ingrese el nodo de destino: ")
-            peso = int(input("Ingrese el peso de la conexión: "))
-            juego.agregar_conexion_mundo(nombre, origen, destino, peso)
-            print("Conexión agregada exitosamente.")
+            nombre_mundo = input("Ingrese el nombre del mundo: ")
+            origen = input("Ingrese el nombre de la ubicación de origen: ")
+            destino = input("Ingrese el nombre de la ubicación de destino: ")
+            peso = int(input("Ingrese el peso de la conexión (distancia o costo): "))
+            juego.agregar_conexion_mundo(nombre_mundo, origen, destino, peso)
+            print(f"Conexión de {origen} a {destino} con peso {peso} añadida en el mundo '{nombre_mundo}'.")
         elif opcion == "3":
-            print("Funcionalidad no implementada aún.")
+            nombre_mundo = input("Ingrese el nombre del mundo: ")
+            origen = input("Ingrese el nombre de la ubicación de origen: ")
+            destino = input("Ingrese el nombre de la ubicación de destino: ")
+            distancia = juego.consultar_ruta_optima(nombre_mundo, origen, destino)
+            if distancia != float('inf'):
+                print(f"La distancia óptima entre {origen} y {destino} en el mundo '{nombre_mundo}' es {distancia}.")
+            else:
+                print(f"No se encontró una ruta entre {origen} y {destino} en el mundo '{nombre_mundo}'.")
         elif opcion == "4":
             break
         else:
             print("Opción no válida. Intente de nuevo.")
+
+# Menú de gestión de inventarios
+def menu_gestion_inventarios(juego):
+    while True:
+        print("\n*************************** Gestión de Inventarios ***************************")
+        print("1) Consultar inventario")
+        print("2) Modificar inventario")
+        print("3) Volver al menú principal")
+        opcion = input("Ingrese una opción válida: ")
+
+        if opcion == "1":
+            nombre = input("Ingrese el nombre del jugador: ")
+            jugador = juego.consultar_jugador(nombre)
+            if jugador:
+                print(f"Inventario de {nombre}: {jugador[0]['Inventario']}")
+            else:
+                print("Jugador no encontrado.")
+        elif opcion == "2":
+            nombre = input("Ingrese el nombre del jugador: ")
+            inventario = input("Ingrese el nuevo inventario en formato JSON: ")
+            try:
+                json.loads(inventario)  # Verifica si es JSON válido
+                query = "UPDATE Jugadores SET Inventario = %s WHERE NombreUsuario = %s"
+                juego.db.execute_query(query, (inventario, nombre))
+                print("Inventario actualizado.")
+            except json.JSONDecodeError:
+                print("Formato de inventario no válido.")
+        elif opcion == "3":
+            break
+        else:
+            print("Opción no válida. Intente de nuevo.")
+
+# Menú del sistema de batallas
+def menu_sistema_batallas(juego):
+    while True:
+        print("\n*************************** Sistema de Batallas ***************************")
+        print("1) Registrar partida")
+        print("2) Consultar partidas por rango de fechas")
+        print("3) Volver al menú principal")
+        opcion = input("Ingrese una opción válida: ")
+
+        if opcion == "1":
+            fecha = input("Ingrese la fecha (YYYY-MM-DD): ")
+            equipo1 = input("Ingrese el nombre del equipo 1: ")
+            equipo2 = input("Ingrese el nombre del equipo 2: ")
+            resultado = input("Ingrese el resultado (Ej: 'Equipo1 ganó'): ")
+            juego.registrar_partida(fecha, equipo1, equipo2, resultado)
+            print("Partida registrada exitosamente.")
+        elif opcion == "2":
+            fecha_inicio = input("Ingrese la fecha de inicio (YYYY-MM-DD): ")
+            fecha_fin = input("Ingrese la fecha de fin (YYYY-MM-DD): ")
+            partidas = juego.consultar_partidas_rango(fecha_inicio, fecha_fin)
+            if partidas:
+                print("Partidas registradas:")
+                for partida in partidas:
+                    print(partida)
+            else:
+                print("No se encontraron partidas en el rango especificado.")
+        elif opcion == "3":
+            break
+        else:
+            print("Opción no válida. Intente de nuevo.")
+
+# Menú del ranking global
+def menu_ranking_global(juego):
+    print("\n*************************** Ranking Global ***************************")
+    query = """
+    SELECT NombreUsuario, Nivel
+    FROM Jugadores
+    ORDER BY Nivel DESC
+    LIMIT 10
+    """
+    resultados = juego.db.fetch_results(query)
+    if resultados:
+        print("Top 10 Jugadores:")
+        for jugador in resultados:
+            print(f"{jugador['NombreUsuario']} - Nivel: {jugador['Nivel']}")
+    else:
+        print("No se encontraron jugadores.")
+
+# Menú de equipos y estadísticas
+def menu_equipos_estadisticas(juego):
+    print("\n*************************** Equipos y Estadísticas ***************************")
+    query = """
+    SELECT Equipo, COUNT(*) AS NumJugadores, AVG(Nivel) AS NivelPromedio
+    FROM Jugadores
+    GROUP BY Equipo
+    """
+    resultados = juego.db.fetch_results(query)
+    if resultados:
+        print("Estadísticas de equipos:")
+        for equipo in resultados:
+            print(f"Equipo: {equipo['Equipo']} - Jugadores: {equipo['NumJugadores']} - Nivel Promedio: {equipo['NivelPromedio']:.2f}")
+    else:
+        print("No se encontraron estadísticas de equipos.")
+
+# Menú de consultas y análisis
+def menu_consultas_analisis(juego):
+    print("\n*************************** Consultas y Análisis ***************************")
+    print("Consulta personalizada sobre los datos del juego.")
+    consulta = input("Ingrese una consulta SQL válida: ")
+    try:
+        resultados = juego.db.fetch_results(consulta)
+        if resultados:
+            for resultado in resultados:
+                print(resultado)
+        else:
+            print("Sin resultados para la consulta.")
+    except Error as e:
+        print(f"Error en la consulta: {e}")
 
 if __name__ == "__main__":
     menu_principal()
